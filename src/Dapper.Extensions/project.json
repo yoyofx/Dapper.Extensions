@@ -1,0 +1,22 @@
+{
+  "title": "Dapper.Extensions",
+  "copyright": "YOYOFx-Maxzhang",
+  "description": "YOYOFx's Dapper.Extensions",
+  "language": "zh-Hans",
+  "version": "1.0.0-*",
+
+  "dependencies": {
+    "Dapper": "1.50.2",
+    "Dapper.Contrib": "1.50.0",
+    "NETStandard.Library": "1.6.0",
+    "System.Data.Common": "4.1.0"
+
+  },
+
+  "frameworks": {
+    "netstandard1.6": {
+      "imports": "dnxcore50"
+    },
+    "net451": {} 
+  }
+}
