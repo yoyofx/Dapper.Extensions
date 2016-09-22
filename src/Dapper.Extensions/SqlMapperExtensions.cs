@@ -288,7 +288,71 @@ namespace Dapper.Extensions
             return pageModel;
         }
 
+        /// <summary>
+        /// 立即执行更新语句,API采用 Update(new {ID = "5" NameA = "imyundong"}).Where(expression).Go()的链式使用方式
+        /// </summary>
+        /// <typeparam name="TModel">模型名称</typeparam>
+        /// <param name="connection"></param>
+        /// <param name="param">匿名对象或实体对象</param>
+        /// <example> session.Update(new {ID = "5", NameA = "imyundong"}).Where(p => p.Age > 5).Go</example>
+        /// <example> session.Update(new {entity.ID, entity.NameA}).Where(p => p.Age > 5).Go</example>
+        /// <example> session.Update(entity).Where(p => p.Age > 5).Go</example>
+        /// <returns></returns>
+        public static IOperatorWhere<TModel> Update<TModel>(this IDbConnection connection, object param)
+            where TModel : class
+        {
+            string tableName = GetTableName(typeof(TModel));
+            List<Parameter> ps = new List<Parameter>();
 
 
+            IDictionary<string, object> filesDic = GetObjectValues(param);
+            List<string> setSql = new List<string>();
+            foreach (KeyValuePair<string, object> f in filesDic)
+            {
+                setSql.Add(string.Format("{0}=@{0}", f.Key));
+                ps.Add(new Parameter()
+                {
+                    IsMethodType = false,
+                    Name = "@" + f.Key,
+                    Value = f.Value
+                });
+            }
+            
+            string paramterNameAndValues = string.Join(",", setSql);
+            string template = string.Format("Update {0} SET {1} Where ", tableName, paramterNameAndValues);
+
+            return new OperatorWhereObject<TModel>(connection, template, ps);
+        }
+
+        /// <summary>
+        /// 反射获取匿名类型或实体的属性键和值
+        /// </summary>
+        /// <param name="obj"></param>
+        /// <returns></returns>
+        public static IDictionary<string, object> GetObjectValues(object obj)
+        {
+            IDictionary<string, object> result = new Dictionary<string, object>();
+            if (obj == null)
+            {
+                return result;
+            }
+
+            foreach (var propertyInfo in obj.GetType().GetProperties())
+            {
+                string name = propertyInfo.Name;
+                object value = propertyInfo.GetValue(obj, null);
+                // 忽略标记Computed特性的属性
+                var computedAttr = propertyInfo
+                        .GetCustomAttributes(false).SingleOrDefault(attr => attr.GetType().Name == "ComputedAttribute")
+                    as dynamic;
+                if (computedAttr == null)
+                {
+                    result[name] = value;
+                }
+            }
+
+
+            return result;
+        }
     }
 }

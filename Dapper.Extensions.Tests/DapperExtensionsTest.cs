@@ -11,7 +11,7 @@ namespace Dapper.Extensions.Tests
         private IDbConnection GetOpenConnection()
         {
             var connection = new SqlConnection(@"");
-            connection.Open();
+            //connection.Open();
             return connection;
         }
 
@@ -115,6 +115,38 @@ namespace Dapper.Extensions.Tests
                 bool ret = updater.Go();
 
                 Assert.Equal(ret, true);
+            }
+        }
+
+        [Fact]
+        public void SimpleUpdateExpressionMethodTest2()
+        {
+            using (var connect = GetOpenConnection())
+            {
+                // 匿名对象1
+                var entity1 = new { CustomerName = "hello", CustomerCity = "x1" };
+
+                var updater1 = connect.Update<CustomersEntity>(entity1)
+                .Where(c => c.CustomerID == 2);
+
+                string sql1 = updater1.SQL;
+                Assert.Equal(sql1,
+                    "Update Customers2 SET CustomerName=@CustomerName,CustomerCity=@CustomerCity Where CustomerID = 2");
+
+                // 匿名对象2
+                CustomersEntity entity2 = new CustomersEntity() { CustomerName = "hello", CustomerCity = "x1", CustomerNumber = "x123" };
+
+                var updater2 = connect.Update<CustomersEntity>(new { entity2.CustomerName, entity2.CustomerCity })
+                .Where(c => c.CustomerID == 2);
+
+                string sql2 = updater2.SQL;
+                Assert.Equal(sql2,
+                    "Update Customers2 SET CustomerName=@CustomerName,CustomerCity=@CustomerCity Where CustomerID = 2");
+
+                // 实体对象/全字段更新且忽略标记了Computed特性的属性
+                var updater3 = connect.Update<CustomersEntity>(entity2)
+                .Where(c => c.CustomerID == 2);
+                string sql3 = updater3.SQL;
             }
         }
 
