@@ -1,4 +1,5 @@
-﻿using System.Data;
+﻿using System.Collections.Generic;
+using System.Data;
 using System.Data.SqlClient;
 using System.Linq;
 using Dapper.Contrib.Extensions;
@@ -21,7 +22,7 @@ namespace Dapper.Extensions.Tests
             using (var connect = GetOpenConnection())
             {
                 var customer = connect.Get<CustomersEntity>(1);
-                Assert.Equal(customer.CustomerID , 1);
+                Assert.Equal(customer.CustomerID, 1);
                 Assert.Equal(customer.CustomerName, "A1");
                 Assert.Equal(customer.CustomerNumber, "9999");
                 Assert.Equal(customer.CustomerCity, "x1");
@@ -33,7 +34,7 @@ namespace Dapper.Extensions.Tests
         {
             using (var connect = GetOpenConnection())
             {
-                var customer = connect.Get<CustomersEntity>(c=>c.CustomerID == 1);
+                var customer = connect.Get<CustomersEntity>(c => c.CustomerID == 1);
                 Assert.Equal(customer.CustomerID, 1);
                 Assert.Equal(customer.CustomerName, "A1");
                 Assert.Equal(customer.CustomerNumber, "9999");
@@ -48,7 +49,7 @@ namespace Dapper.Extensions.Tests
             using (var connect = GetOpenConnection())
             {
                 var customers = connect.GetAll<CustomersEntity>(c => c.CustomerID <= 50);
-                Assert.Equal(customers.Count() , 50);
+                Assert.Equal(customers.Count(), 50);
             }
         }
 
@@ -61,7 +62,7 @@ namespace Dapper.Extensions.Tests
                 int count = connect.QuerySingle<int>("select count(1) from Customers2");
 
 
-                var customer = new CustomersEntity() { CustomerName = "A1", CustomerCity = "x1" , CustomerNumber = "9999"};
+                var customer = new CustomersEntity() { CustomerName = "A1", CustomerCity = "x1", CustomerNumber = "9999" };
 
                 long id = connect.Insert(customer);
 
@@ -78,8 +79,8 @@ namespace Dapper.Extensions.Tests
         {
             using (var connect = GetOpenConnection())
             {
-              
-                var customer = new CustomersEntity() { CustomerID = 1 , CustomerName = "A1", CustomerCity = "x1", CustomerNumber = "9999" };
+
+                var customer = new CustomersEntity() { CustomerID = 1, CustomerName = "A1", CustomerCity = "x1", CustomerNumber = "9999" };
                 //更新实体，不能只更新某些字段
                 bool s = connect.Update(customer);
 
@@ -98,7 +99,7 @@ namespace Dapper.Extensions.Tests
             {
                 //更新一个表达式实体，保证只更新表达式中的字段值
                 //IOperatorWhere<Customers2>.Where(exp);
-                var updater = connect.Update<CustomersEntity>(c => new CustomersEntity
+                var updater = connect.Update<CustomersEntity>(c => new CustomersEntity()
                 {
                     CustomerName = "hello",
                     CustomerCity = "x1"
@@ -134,7 +135,7 @@ namespace Dapper.Extensions.Tests
                     "Update Customers2 SET CustomerName=@CustomerName,CustomerCity=@CustomerCity Where CustomerID = 2");
 
                 // 匿名对象2
-                CustomersEntity entity2 = new CustomersEntity() { CustomerName = "hello", CustomerCity = "x1", CustomerNumber = "x123" };
+                CustomersEntity entity2 = new CustomersEntity { CustomerName = "hello", CustomerCity = "x1", CustomerNumber = "x123" };
 
                 var updater2 = connect.Update<CustomersEntity>(new { entity2.CustomerName, entity2.CustomerCity })
                 .Where(c => c.CustomerID == 2);
@@ -176,7 +177,7 @@ namespace Dapper.Extensions.Tests
         {
             using (var connect = GetOpenConnection())
             {
-                var customer = new CustomersEntity { CustomerID = 2 , IsActive = false };
+                var customer = new CustomersEntity() { CustomerID = 2, IsActive = false };
                 bool s = connect.SetActive(customer);
 
                 Assert.Equal(s, true);
@@ -198,7 +199,31 @@ namespace Dapper.Extensions.Tests
 
             using (var connect = GetOpenConnection())
             {
-                var customer = connect.Query<CustomersEntity>(c => c.CustomerID == 1, sort);
+                var customer = connect.Query<CustomersEntity>(c => c.CustomerID == 1, null, sort);
+            }
+        }
+
+        /// <summary>
+        /// 查询部分字段
+        /// </summary>
+        [Fact]
+        public void QueryPartial()
+        {
+            CustomersEntity entity = null;
+            DapperSort sort = new DapperSort()
+            {
+                new Sort(index:1,field:nameof(entity.CustomerCity),sortType:ESortType.Asc),
+                new Sort(index:0,field:nameof(entity.CustomerName),sortType:ESortType.Desc)
+            };
+
+            using (var connect = GetOpenConnection())
+            {
+                var customer = connect.Query<CustomersEntity>(c => c.CustomerID == 1,
+                    c => new
+                    {
+                        c.CustomerCity,
+                        c.CustomerName
+                    }, sort);
             }
         }
     }

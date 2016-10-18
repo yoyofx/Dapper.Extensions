@@ -32,10 +32,21 @@ namespace Dapper.Extensions
         }
 
 
-        internal static string CreateQuerySQL<T>(Expression<Func<T, bool>> expression, DapperSort sort = null) where T : class
+        internal static string CreateQuerySQL<T>(Expression<Func<T, bool>> whereExp, Expression<Func<T, object>> fieldExp = null, DapperSort sort = null) where T : class
         {
+            string fieldNames = "*";
+            if (fieldExp != null)
+            {
+                FieldsFormater format = new FieldsFormater();
+                format.Visit(fieldExp);
+                if (format.Parameters.Count > 0)
+                {
+                    fieldNames = string.Join(",", format.Parameters.Select(x => x.Key));
+                }
+            }
+
             var translate = new SqlTranslateFormater();
-            string sqlWhere = translate.Translate(expression);
+            string sqlWhere = translate.Translate(whereExp);
 
             if (sort != null && sort.Count > 0)
             {
@@ -43,15 +54,26 @@ namespace Dapper.Extensions
             }
 
             string tableName = GetTableName(typeof(T));
-            
-            StringBuilder sqlBuilder = new StringBuilder($"select * from {tableName} where ");
+
+            StringBuilder sqlBuilder = new StringBuilder($"select {fieldNames} from {tableName} where ");
             sqlBuilder.Append(sqlWhere);
             return sqlBuilder.ToString();
         }
 
 
-        internal static string CreateQuerySQLWithActive<T>(Expression<Func<T, bool>> expression, DapperSort sort = null) where T : class
+        internal static string CreateQuerySQLWithActive<T>(Expression<Func<T, bool>> expression, Expression<Func<T, object>> fieldExp = null, DapperSort sort = null) where T : class
         {
+            string fieldNames = "*";
+            if (fieldExp != null)
+            {
+                FieldsFormater format = new FieldsFormater();
+                format.Visit(fieldExp);
+                if (format.Parameters.Count > 0)
+                {
+                    fieldNames = string.Join(",", format.Parameters.Select(x => x.Key));
+                }
+            }
+
             var translate = new SqlTranslateFormater();
             string sqlWhere = translate.Translate(expression);
 
@@ -62,7 +84,7 @@ namespace Dapper.Extensions
 
             string tableName = GetTableName(typeof(T));
 
-            StringBuilder sqlBuilder = new StringBuilder($"select * from {tableName} where IsActive=1 AND ");
+            StringBuilder sqlBuilder = new StringBuilder($"select {fieldNames} from {tableName} where IsActive=1 AND ");
             sqlBuilder.Append(sqlWhere);
             return sqlBuilder.ToString();
         }
@@ -85,12 +107,13 @@ namespace Dapper.Extensions
         /// </summary>
         /// <typeparam name="T">表名</typeparam>
         /// <param name="connection">数据库连接</param>
-        /// <param name="expression">where表达式</param>
+        /// <param name="whereExp">where表达式</param>
+        /// <param name="fieldExp">指定查询字段</param>
         /// <param name="sort"></param>
         /// <returns>一条实体记录</returns>
-        public static T Get<T>(this IDbConnection connection, Expression<Func<T, bool>> expression,DapperSort sort=null) where T : class
+        public static T Get<T>(this IDbConnection connection, Expression<Func<T, bool>> whereExp, Expression<Func<T, object>> fieldExp = null, DapperSort sort = null) where T : class
         {
-            return connection.QueryFirstOrDefault<T>(CreateQuerySQL<T>(expression,sort));
+            return connection.QueryFirstOrDefault<T>(CreateQuerySQL<T>(whereExp, fieldExp, sort));
         }
 
         /// <summary>
@@ -98,13 +121,14 @@ namespace Dapper.Extensions
         /// </summary>
         /// <typeparam name="T">表名</typeparam>
         /// <param name="connection">数据库连接</param>
-        /// <param name="expression">where表达式</param>
+        /// <param name="whereExp">where表达式</param>
+        /// <param name="fieldExp">指定查询字段</param>
         /// <param name="sort"></param>
         /// <returns>一条实体记录</returns>
-        public static Task<T> GetAsync<T>(this IDbConnection connection, Expression<Func<T, bool>> expression,DapperSort sort=null)
+        public static Task<T> GetAsync<T>(this IDbConnection connection, Expression<Func<T, bool>> whereExp, Expression<Func<T, object>> fieldExp = null, DapperSort sort = null)
             where T : class
         {
-            return connection.QueryFirstAsync<T>(CreateQuerySQL<T>(expression,sort));
+            return connection.QueryFirstAsync<T>(CreateQuerySQL<T>(whereExp, fieldExp, sort));
         }
 
 
@@ -113,12 +137,13 @@ namespace Dapper.Extensions
         /// </summary>
         /// <typeparam name="T">表名</typeparam>
         /// <param name="connection">数据库连接</param>
-        /// <param name="expression">where表达式</param>
+        /// <param name="whereExp">where表达式</param>
+        /// <param name="fieldExp">指定查询字段</param>
         /// <param name="sort"></param>
         /// <returns>实体记录集合</returns>
-        public static IEnumerable<T> GetAllForIsActive<T>(this IDbConnection connection, Expression<Func<T, bool>> expression,DapperSort sort=null) where T : class
+        public static IEnumerable<T> GetAllForIsActive<T>(this IDbConnection connection, Expression<Func<T, bool>> whereExp, Expression<Func<T, object>> fieldExp = null, DapperSort sort = null) where T : class
         {
-            return connection.Query<T>(CreateQuerySQLWithActive<T>(expression,sort));
+            return connection.Query<T>(CreateQuerySQLWithActive<T>(whereExp, fieldExp, sort));
         }
 
 
@@ -127,12 +152,13 @@ namespace Dapper.Extensions
         /// </summary>
         /// <typeparam name="T">表名</typeparam>
         /// <param name="connection">数据库连接</param>
-        /// <param name="expression">where表达式</param>
+        /// <param name="whereExp">where表达式</param>
+        /// <param name="fieldExp">指定查询字段</param>
         /// <param name="sort"></param>
         /// <returns>实体记录集合</returns>
-        public static IEnumerable<T> GetAll<T>(this IDbConnection connection, Expression<Func<T, bool>> expression,DapperSort sort=null) where T : class
+        public static IEnumerable<T> GetAll<T>(this IDbConnection connection, Expression<Func<T, bool>> whereExp, Expression<Func<T, object>> fieldExp = null, DapperSort sort = null) where T : class
         {
-            return connection.Query<T>(CreateQuerySQL<T>(expression,sort));
+            return connection.Query<T>(CreateQuerySQL<T>(whereExp, fieldExp, sort));
         }
 
         /// <summary>
@@ -140,13 +166,14 @@ namespace Dapper.Extensions
         /// </summary>
         /// <typeparam name="T">表名</typeparam>
         /// <param name="connection">数据库连接</param>
-        /// <param name="expression">where表达式</param>
+        /// <param name="whereExp">where表达式</param>
+        /// <param name="fieldExp">指定查询字段</param>
         /// <param name="sort"></param>
         /// <returns>实体记录集合</returns>
-        public static Task<IEnumerable<T>> GetAllAsync<T>(this IDbConnection connection, Expression<Func<T, bool>> expression,DapperSort sort=null)
+        public static Task<IEnumerable<T>> GetAllAsync<T>(this IDbConnection connection, Expression<Func<T, bool>> whereExp, Expression<Func<T, object>> fieldExp = null, DapperSort sort = null)
           where T : class
         {
-            return connection.QueryAsync<T>(CreateQuerySQL<T>(expression,sort));
+            return connection.QueryAsync<T>(CreateQuerySQL<T>(whereExp, fieldExp, sort));
         }
 
 
@@ -180,19 +207,19 @@ namespace Dapper.Extensions
         /// <param name="id">记录ID</param>
         /// <param name="isActive">是否逻辑删除</param>
         /// <returns>是否逻辑删除成功</returns>
-        public static bool SetActive<TModel>(this IDbConnection connection,dynamic id,bool isActive = false) where TModel : class
+        public static bool SetActive<TModel>(this IDbConnection connection, dynamic id, bool isActive = false) where TModel : class
         {
             var modelType = typeof(TModel);
             var keyPropertyInfo = modelType.GetProperties().FirstOrDefault(p => p.GetCustomAttributes(typeof(KeyAttribute), true).Count() > 0);
             var IsActivePropertyInfo = modelType.GetProperties().FirstOrDefault(p => p.GetCustomAttributes(typeof(ActiveAttribute), true).Count() > 0);
-            if(IsActivePropertyInfo == null)
+            if (IsActivePropertyInfo == null)
                 throw new NotSupportedException("实体类没有定义Active特性！");
 
             string tableName = GetTableName(typeof(TModel));
-            string template = string.Format("Update {0} SET IsActive=@IsActive Where {1}=@Id",tableName,keyPropertyInfo.Name);
+            string template = string.Format("Update {0} SET IsActive=@IsActive Where {1}=@Id", tableName, keyPropertyInfo.Name);
             var dynParms = new DynamicParameters();
-            dynParms.Add("@IsActive",isActive);
-            dynParms.Add("@Id",id);
+            dynParms.Add("@IsActive", isActive);
+            dynParms.Add("@Id", id);
 
             bool ret = connection.Execute(template, dynParms) > 0;
             return ret;
@@ -211,15 +238,15 @@ namespace Dapper.Extensions
             var keyPropertyInfo = modelType.GetProperties().FirstOrDefault(p => p.GetCustomAttributes(typeof(KeyAttribute), true).Count() > 0);
             var IsActivePropertyInfo = modelType.GetProperties().FirstOrDefault(p => p.GetCustomAttributes(typeof(ActiveAttribute), true).Count() > 0);
 
-            if(keyPropertyInfo == null)
+            if (keyPropertyInfo == null)
                 throw new NotSupportedException("实体类没有定义主键(Key)特性！");
 
             if (IsActivePropertyInfo == null)
                 throw new NotSupportedException("实体类没有定义逻辑删除(Active)特性！");
 
             //取得表实体对象的值 id and isactive field
-            object id = keyPropertyInfo.GetValue(model,null);
-            object isActive = IsActivePropertyInfo.GetValue(model,null);
+            object id = keyPropertyInfo.GetValue(model, null);
+            object isActive = IsActivePropertyInfo.GetValue(model, null);
 
             string tableName = GetTableName(typeof(TModel));
             //execute sql
@@ -241,7 +268,7 @@ namespace Dapper.Extensions
         /// <param name="id">表记录ID</param>
         /// <param name="sort"></param>
         /// <returns>一条实体记录</returns>
-        public static TModel GetIsActive<TModel>(this IDbConnection connection, dynamic id,DapperSort sort=null)
+        public static TModel GetIsActive<TModel>(this IDbConnection connection, dynamic id, DapperSort sort = null)
         {
             var modelType = typeof(TModel);
             var tableName = GetTableName(modelType);
@@ -268,7 +295,7 @@ namespace Dapper.Extensions
         /// <param name="connection">数据库连接</param>
         /// <param name="sort"></param>
         /// <returns>实体记录集合</returns>
-        public static IEnumerable<TModel> GetAllIsActive<TModel>(this IDbConnection connection,DapperSort sort)
+        public static IEnumerable<TModel> GetAllIsActive<TModel>(this IDbConnection connection, DapperSort sort)
         {
             var modelType = typeof(TModel);
             var tableName = GetTableName(modelType);
@@ -283,16 +310,16 @@ namespace Dapper.Extensions
         }
 
 
-        public static PageView<TModel> GetPager<TModel>(this IDbConnection connection , PageCondition condition) where TModel:class 
+        public static PageView<TModel> GetPager<TModel>(this IDbConnection connection, PageCondition condition) where TModel : class
         {
-            if(condition == null) throw new ArgumentNullException("condition");
+            if (condition == null) throw new ArgumentNullException("condition");
 
             var dps = new DynamicParameters();
-            dps.Add("@TableName",condition.TableName);
-            dps.Add("@FieldNames",condition.FieldNames);
+            dps.Add("@TableName", condition.TableName);
+            dps.Add("@FieldNames", condition.FieldNames);
 
-            if(!string.IsNullOrEmpty(condition.Where))
-                dps.Add("@WhereString",condition.Where);
+            if (!string.IsNullOrEmpty(condition.Where))
+                dps.Add("@WhereString", condition.Where);
 
             dps.Add("@OrderField", condition.OrderField);
             dps.Add("@OrderType", Convert.ToInt32(condition.OrderType));
@@ -305,9 +332,9 @@ namespace Dapper.Extensions
 
             using (var muti = connection.QueryMultiple("Proc_Common_PagerHelper", dps))
             {
-               int count = muti.ReadSingle<int>();
-               var data = muti.Read<TModel>();
-               pageModel = new PageView<TModel>(data,count);
+                int count = muti.ReadSingle<int>();
+                var data = muti.Read<TModel>();
+                pageModel = new PageView<TModel>(data, count);
             }
 
             return pageModel;
@@ -342,7 +369,7 @@ namespace Dapper.Extensions
                     Value = f.Value
                 });
             }
-            
+
             string paramterNameAndValues = string.Join(",", setSql);
             string template = string.Format("Update {0} SET {1} Where ", tableName, paramterNameAndValues);
 
@@ -354,12 +381,13 @@ namespace Dapper.Extensions
         /// </summary>
         /// <typeparam name="T"></typeparam>
         /// <param name="connection"></param>
-        /// <param name="expression">查询条件</param>
+        /// <param name="whereExp">查询条件</param>
+        /// <param name="fieldExp">指定查询字段</param>
         /// <param name="sort">排序对象</param>
         /// <returns></returns>
-        public static IEnumerable<T> Query<T>(this IDbConnection connection, Expression<Func<T, bool>> expression, DapperSort sort = null) where T : class
+        public static IEnumerable<T> Query<T>(this IDbConnection connection, Expression<Func<T, bool>> whereExp, Expression<Func<T, object>> fieldExp = null, DapperSort sort = null) where T : class
         {
-            return connection.Query<T>(CreateQuerySQL<T>(expression, sort));
+            return connection.Query<T>(CreateQuerySQL<T>(whereExp, fieldExp, sort));
         }
 
         /// <summary>
@@ -367,12 +395,13 @@ namespace Dapper.Extensions
         /// </summary>
         /// <typeparam name="T"></typeparam>
         /// <param name="connection"></param>
-        /// <param name="expression">查询条件</param>
+        /// <param name="whereExp">查询条件</param>
+        /// <param name="fieldExp">指定查询字段</param>
         /// <param name="sort">排序对象</param>
         /// <returns></returns>
-        public static Task<IEnumerable<T>> QueryAsync<T>(this IDbConnection connection, Expression<Func<T, bool>> expression, DapperSort sort = null) where T : class
+        public static Task<IEnumerable<T>> QueryAsync<T>(this IDbConnection connection, Expression<Func<T, bool>> whereExp, Expression<Func<T, object>> fieldExp = null, DapperSort sort = null) where T : class
         {
-            return connection.QueryAsync<T>(CreateQuerySQL<T>(expression, sort));
+            return connection.QueryAsync<T>(CreateQuerySQL<T>(whereExp, fieldExp, sort));
         }
 
         /// <summary>
@@ -405,8 +434,9 @@ namespace Dapper.Extensions
         /// 反射获取匿名类型或实体的属性键和值
         /// </summary>
         /// <param name="obj"></param>
+        /// <param name="filterComputed"></param>
         /// <returns></returns>
-        public static IDictionary<string, object> GetObjectValues(object obj)
+        public static IDictionary<string, object> GetObjectValues(object obj, bool filterComputed = true)
         {
             IDictionary<string, object> result = new Dictionary<string, object>();
             if (obj == null)
@@ -418,11 +448,19 @@ namespace Dapper.Extensions
             {
                 string name = propertyInfo.Name;
                 object value = propertyInfo.GetValue(obj, null);
-                // 忽略标记Computed特性的属性
-                var computedAttr = propertyInfo
-                        .GetCustomAttributes(false).SingleOrDefault(attr => attr.GetType().Name == "ComputedAttribute")
-                    as dynamic;
-                if (computedAttr == null)
+                if (filterComputed)
+                {
+                    // 忽略标记Computed特性的属性
+                    var computedAttr = propertyInfo
+                            .GetCustomAttributes(false)
+                            .SingleOrDefault(attr => attr.GetType().Name == "ComputedAttribute")
+                        as dynamic;
+                    if (computedAttr == null)
+                    {
+                        result[name] = value;
+                    }
+                }
+                else
                 {
                     result[name] = value;
                 }
