@@ -91,6 +91,23 @@ namespace Dapper.Extensions
         }
 
         /// <summary>
+        /// 访问匿名类型成员
+        /// </summary>
+        /// <param name="node"></param>
+        /// <returns></returns>
+        protected override Expression VisitNew(NewExpression node)
+        {
+            if (node.Members != null)
+            {
+                foreach (var item in node.Members)
+                {
+                    Parameters.Add(item.Name, null);
+                }
+            }
+            return base.VisitNew(node);
+        }
+
+        /// <summary>
         /// 访问表达式中的函数调用
         /// </summary>
         /// <param name="node"></param>
