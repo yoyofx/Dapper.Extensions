@@ -183,6 +183,23 @@ namespace Dapper.Extensions.Tests
             }
         }
 
+        /// <summary>
+        /// 扩展Dapper默认Query方法支持Expression查询
+        /// </summary>
+        [Fact]
+        public void QueryWithSortCustomer()
+        {
+            CustomersEntity entity = null;
+            DapperSort sort = new DapperSort()
+            {
+                new Sort(index:1,field:nameof(entity.CustomerCity),sortType:ESortType.Asc),
+                new Sort(index:0,field:nameof(entity.CustomerName),sortType:ESortType.Desc)
+            };
 
+            using (var connect = GetOpenConnection())
+            {
+                var customer = connect.Query<CustomersEntity>(c => c.CustomerID == 1, sort);
+            }
+        }
     }
 }

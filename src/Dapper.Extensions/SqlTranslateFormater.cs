@@ -305,6 +305,12 @@ namespace Dapper.Extensions
                             sb.Append(value.ToString());
 
                         }
+                        else if (c.Type == typeof(Guid))
+                        {
+                            sb.Append("'");
+                            sb.Append(c.Value);
+                            sb.Append("'");
+                        }
                         else
                             throw new NotSupportedException(string.Format("The constant for '{0}' is not supported", c.Value));
                         break;
