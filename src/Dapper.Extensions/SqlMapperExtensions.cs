@@ -32,10 +32,15 @@ namespace Dapper.Extensions
         }
 
 
-        internal static string CreateQuerySQL<T>(Expression<Func<T, bool>> expression) where T : class
+        internal static string CreateQuerySQL<T>(Expression<Func<T, bool>> expression, DapperSort sort = null) where T : class
         {
             var translate = new SqlTranslateFormater();
             string sqlWhere = translate.Translate(expression);
+
+            if (sort != null && sort.Count > 0)
+            {
+                sqlWhere += $" Order By {sort}";
+            }
 
             string tableName = GetTableName(typeof(T));
             
@@ -45,10 +50,15 @@ namespace Dapper.Extensions
         }
 
 
-        internal static string CreateQuerySQLWithActive<T>(Expression<Func<T, bool>> expression) where T : class
+        internal static string CreateQuerySQLWithActive<T>(Expression<Func<T, bool>> expression, DapperSort sort = null) where T : class
         {
             var translate = new SqlTranslateFormater();
             string sqlWhere = translate.Translate(expression);
+
+            if (sort != null && sort.Count > 0)
+            {
+                sqlWhere += $" Order By {sort}";
+            }
 
             string tableName = GetTableName(typeof(T));
 
@@ -76,10 +86,11 @@ namespace Dapper.Extensions
         /// <typeparam name="T">表名</typeparam>
         /// <param name="connection">数据库连接</param>
         /// <param name="expression">where表达式</param>
+        /// <param name="sort"></param>
         /// <returns>一条实体记录</returns>
-        public static T Get<T>(this IDbConnection connection, Expression<Func<T, bool>> expression) where T : class
+        public static T Get<T>(this IDbConnection connection, Expression<Func<T, bool>> expression,DapperSort sort=null) where T : class
         {
-            return connection.QueryFirstOrDefault<T>(CreateQuerySQL<T>(expression));
+            return connection.QueryFirstOrDefault<T>(CreateQuerySQL<T>(expression,sort));
         }
 
         /// <summary>
@@ -88,11 +99,12 @@ namespace Dapper.Extensions
         /// <typeparam name="T">表名</typeparam>
         /// <param name="connection">数据库连接</param>
         /// <param name="expression">where表达式</param>
+        /// <param name="sort"></param>
         /// <returns>一条实体记录</returns>
-        public static Task<T> GetAsync<T>(this IDbConnection connection, Expression<Func<T, bool>> expression)
+        public static Task<T> GetAsync<T>(this IDbConnection connection, Expression<Func<T, bool>> expression,DapperSort sort=null)
             where T : class
         {
-            return connection.QueryFirstAsync<T>(CreateQuerySQL<T>(expression));
+            return connection.QueryFirstAsync<T>(CreateQuerySQL<T>(expression,sort));
         }
 
 
@@ -102,10 +114,11 @@ namespace Dapper.Extensions
         /// <typeparam name="T">表名</typeparam>
         /// <param name="connection">数据库连接</param>
         /// <param name="expression">where表达式</param>
+        /// <param name="sort"></param>
         /// <returns>实体记录集合</returns>
-        public static IEnumerable<T> GetAllForIsActive<T>(this IDbConnection connection, Expression<Func<T, bool>> expression) where T : class
+        public static IEnumerable<T> GetAllForIsActive<T>(this IDbConnection connection, Expression<Func<T, bool>> expression,DapperSort sort=null) where T : class
         {
-            return connection.Query<T>(CreateQuerySQLWithActive<T>(expression));
+            return connection.Query<T>(CreateQuerySQLWithActive<T>(expression,sort));
         }
 
 
@@ -115,10 +128,11 @@ namespace Dapper.Extensions
         /// <typeparam name="T">表名</typeparam>
         /// <param name="connection">数据库连接</param>
         /// <param name="expression">where表达式</param>
+        /// <param name="sort"></param>
         /// <returns>实体记录集合</returns>
-        public static IEnumerable<T> GetAll<T>(this IDbConnection connection, Expression<Func<T, bool>> expression) where T : class
+        public static IEnumerable<T> GetAll<T>(this IDbConnection connection, Expression<Func<T, bool>> expression,DapperSort sort=null) where T : class
         {
-            return connection.Query<T>(CreateQuerySQL<T>(expression));
+            return connection.Query<T>(CreateQuerySQL<T>(expression,sort));
         }
 
         /// <summary>
@@ -127,11 +141,12 @@ namespace Dapper.Extensions
         /// <typeparam name="T">表名</typeparam>
         /// <param name="connection">数据库连接</param>
         /// <param name="expression">where表达式</param>
+        /// <param name="sort"></param>
         /// <returns>实体记录集合</returns>
-        public static Task<IEnumerable<T>> GetAllAsync<T>(this IDbConnection connection, Expression<Func<T, bool>> expression)
+        public static Task<IEnumerable<T>> GetAllAsync<T>(this IDbConnection connection, Expression<Func<T, bool>> expression,DapperSort sort=null)
           where T : class
         {
-            return connection.QueryAsync<T>(CreateQuerySQL<T>(expression));
+            return connection.QueryAsync<T>(CreateQuerySQL<T>(expression,sort));
         }
 
 
@@ -224,8 +239,9 @@ namespace Dapper.Extensions
         /// <typeparam name="TModel">表名</typeparam>
         /// <param name="connection">数据库连接</param>
         /// <param name="id">表记录ID</param>
+        /// <param name="sort"></param>
         /// <returns>一条实体记录</returns>
-        public static TModel GetIsActive<TModel>(this IDbConnection connection, dynamic id)
+        public static TModel GetIsActive<TModel>(this IDbConnection connection, dynamic id,DapperSort sort=null)
         {
             var modelType = typeof(TModel);
             var tableName = GetTableName(modelType);
@@ -234,6 +250,10 @@ namespace Dapper.Extensions
                 throw new NotSupportedException("实体类没有定义主键(Key)特性！");
 
             string template = $"Select * from {tableName} Where {keyPropertyInfo.Name}=@Id AND IsActive=@IsActive";
+            if (sort != null && sort.Count > 0)
+            {
+                template += string.Format(" Order by {0} ", sort);
+            }
             var dynParms = new DynamicParameters();
             dynParms.Add("@IsActive", 1);
             dynParms.Add("@Id", id);
@@ -246,12 +266,17 @@ namespace Dapper.Extensions
         /// </summary>
         /// <typeparam name="TModel">表名</typeparam>
         /// <param name="connection">数据库连接</param>
+        /// <param name="sort"></param>
         /// <returns>实体记录集合</returns>
-        public static IEnumerable<TModel> GetAllIsActive<TModel>(this IDbConnection connection)
+        public static IEnumerable<TModel> GetAllIsActive<TModel>(this IDbConnection connection,DapperSort sort)
         {
             var modelType = typeof(TModel);
             var tableName = GetTableName(modelType);
             string template = $"Select * from {tableName} Where IsActive=@IsActive";
+            if (sort != null && sort.Count > 0)
+            {
+                template += string.Format(" Order by {0} ", sort);
+            }
             var dynParms = new DynamicParameters();
             dynParms.Add("@IsActive", 1);
             return connection.Query<TModel>(template, dynParms);
@@ -322,6 +347,58 @@ namespace Dapper.Extensions
             string template = string.Format("Update {0} SET {1} Where ", tableName, paramterNameAndValues);
 
             return new OperatorWhereObject<TModel>(connection, template, ps);
+        }
+
+        /// <summary>
+        /// 查询数据
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="connection"></param>
+        /// <param name="expression">查询条件</param>
+        /// <param name="sort">排序对象</param>
+        /// <returns></returns>
+        public static IEnumerable<T> Query<T>(this IDbConnection connection, Expression<Func<T, bool>> expression, DapperSort sort = null) where T : class
+        {
+            return connection.Query<T>(CreateQuerySQL<T>(expression, sort));
+        }
+
+        /// <summary>
+        /// 异步查询数据
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="connection"></param>
+        /// <param name="expression">查询条件</param>
+        /// <param name="sort">排序对象</param>
+        /// <returns></returns>
+        public static Task<IEnumerable<T>> QueryAsync<T>(this IDbConnection connection, Expression<Func<T, bool>> expression, DapperSort sort = null) where T : class
+        {
+            return connection.QueryAsync<T>(CreateQuerySQL<T>(expression, sort));
+        }
+
+        /// <summary>
+        /// 数据是否存在
+        /// </summary>
+        /// <typeparam name="TModel"></typeparam>
+        /// <param name="connection"></param>
+        /// <param name="expression">查询条件</param>
+        /// <param name="isActive">是否逻辑删除状态，默认否</param>
+        /// <returns></returns>
+        public static bool Exist<TModel>(this IDbConnection connection, Expression<Func<TModel, bool>> expression, bool isActive = false)
+        {
+            Type type = typeof(TModel);
+            string tableName = GetTableName(type);
+
+            var translate = new SqlTranslateFormater();
+            string sqlWhere = translate.Translate(expression);
+
+            StringBuilder sqlBuilder = new StringBuilder($"select 1 from {tableName} where ");
+            if (isActive)
+            {
+                sqlBuilder.Append(" IsActive=1 AND ");
+            }
+            sqlBuilder.Append(sqlWhere);
+
+            return connection.ExecuteScalar<int>(sqlBuilder.ToString()) > 0;
         }
 
         /// <summary>
