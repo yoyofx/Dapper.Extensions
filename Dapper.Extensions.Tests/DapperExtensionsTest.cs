@@ -199,7 +199,7 @@ namespace Dapper.Extensions.Tests
 
             using (var connect = GetOpenConnection())
             {
-                var customer = connect.Query<CustomersEntity>(c => c.CustomerID == 1, sort);
+                var customer = connect.Query<CustomersEntity>(c => c.CustomerID == 1, null, sort);
             }
         }
 
