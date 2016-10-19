@@ -5,6 +5,8 @@ using System.Linq.Expressions;
 using System.Text;
 using System.Collections.Generic;
 using System.Collections.Concurrent;
+using System.Reflection;
+
 namespace Dapper.Extensions
 {
     /// <summary>
@@ -31,7 +33,7 @@ namespace Dapper.Extensions
         {
             sb = new StringBuilder();
             ordby = new StringBuilder();
-            
+
             this.Visit(expr);
             return sb.ToString();
         }
@@ -46,8 +48,8 @@ namespace Dapper.Extensions
         protected override Expression VisitBinary(BinaryExpression b)
         {
             isleft = true;
- 
-            this.VisitBinaryWithParent(b,b.Left);
+
+            this.VisitBinaryWithParent(b, b.Left);
 
             switch (b.NodeType)
             {
@@ -81,12 +83,12 @@ namespace Dapper.Extensions
 
             this.VisitBinaryWithParent(b, b.Right);
 
-          
+
             return b;
         }
 
         //访问父节点，用于优先级计算
-        private void VisitBinaryWithParent(Expression parent,Expression node)
+        private void VisitBinaryWithParent(Expression parent, Expression node)
         {
             var left = isleft;
             if (IsDiffNoteType(parent, node))
@@ -165,7 +167,7 @@ namespace Dapper.Extensions
         }
 
         //看上一个节点和下一个是不是一样的操作符
-        private bool IsDiffNoteType(Expression parent,Expression children)
+        private bool IsDiffNoteType(Expression parent, Expression children)
         {
             if (IsOpertaorType(parent) && IsOpertaorType(children))
             {
@@ -176,7 +178,7 @@ namespace Dapper.Extensions
             }
             else
             {
-              
+
                 return false;
             }
 
@@ -218,7 +220,7 @@ namespace Dapper.Extensions
                 if (node.Member.DeclaringType != null && (!isAsName && !Ass.TryGetValue(node.Member.DeclaringType, out ts)))
                     GetParentMemberName(node.Expression);
 
-                var fieldName =  node.Member.Name;
+                var fieldName = node.Member.Name;
 
                 string tn = string.Empty;
                 //成员表达式的别名 如 c.Name 
@@ -227,7 +229,7 @@ namespace Dapper.Extensions
                 //    sb.Append(tn); 
                 //    sb.Append(".");
                 //}
-               
+
                 sb.Append(fieldName);
                 return node;
             }
@@ -252,12 +254,12 @@ namespace Dapper.Extensions
             if (q != null)
             {
 
-                var tableName =q.ElementType.Name;
-  
+                var tableName = q.ElementType.Name;
+
                 sb.Append(tableName);
 
                 sb.Append(" ");
-                if(Ass.Keys.Count >0)
+                if (Ass.Keys.Count > 0)
                     sb.Append(Ass[q.ElementType]);
                 else
                     sb.Append("T");
@@ -283,27 +285,42 @@ namespace Dapper.Extensions
                         sb.Append("'");
                         break;
                     case TypeCode.Object:
-                        if (c.Type.IsArray)           
+#if COREFX
+                        if (c.Type.GetTypeInfo().GetInterface("IEnumerable", false) != null)
+#else
+                        if (c.Type.GetInterface("IEnumerable", false) != null)   
+#endif
                         {
-                            var array = c.Value as Array;
-                            if (array == null || array.Length == 0)
-                                throw new InvalidOperationException(string.Format("语句中的数组数据不能为空值。", c.Value));
-                            object elementOne = array.GetValue(0);
-                            Type elementType = elementOne.GetType();
-                            string format = "{0}";
-                            if (elementType == typeof(string))
-                                format = "'{0}'";
-                            StringBuilder value =new StringBuilder();
-                            value.Append("(");
-                            for (int i = 0; i < array.Length; i++)
+                            List<object> list = new List<object>();
+                            foreach (var item in (IEnumerable)c.Value)
                             {
-                                value.AppendFormat(format, array.GetValue(i));
-                                if (i != array.Length - 1)
+                                list.Add(item);
+                            }
+
+                            if (list.Count == 0)
+                                throw new InvalidOperationException($"{c.Value}语句中的数组数据不能为空值。");
+                            object elementOne = list[0];
+                            Type elementType = elementOne.GetType();
+
+                            if (Type.GetTypeCode(elementType) == TypeCode.Boolean)
+                                throw new NotSupportedException($"{c.Value}不支持包含多个bool类型，请使用是否相等作为条件");
+
+                            string format = "{0}";
+
+                            // 字符类型、时间类型、GUID类型单独处理
+                            if (elementType == typeof(string) || elementType == typeof(DateTime) || elementType == typeof(Guid))
+                                format = "'{0}'";
+
+                            StringBuilder value = new StringBuilder();
+                            value.Append("(");
+                            for (int i = 0; i < list.Count; i++)
+                            {
+                                value.AppendFormat(format, list[i]);
+                                if (i != list.Count - 1)
                                     value.Append(",");
                             }
                             value.Append(")");
-                            sb.Append(value.ToString());
-
+                            sb.Append(value);
                         }
                         else if (c.Type == typeof(Guid))
                         {
@@ -332,8 +349,8 @@ namespace Dapper.Extensions
                 this.Visit(node.Operand);
             return node;
         }
-        
-        
+
+
         /// <summary>
         /// 访问方法
         /// </summary>
@@ -343,14 +360,14 @@ namespace Dapper.Extensions
         {
             var methodInfo = node.Method;
 
-            if (methodInfo.DeclaringType == typeof(SQLMethod)  )
+            if (methodInfo.DeclaringType == typeof(SQLMethod))
             {
                 bool tleft = isleft;
                 isleft = true;
-                if(node.Arguments.Count > 0)
+                if (node.Arguments.Count > 0)
                     this.Visit(node.Arguments[0]);
                 isleft = tleft;
-                switch(methodInfo.Name)
+                switch (methodInfo.Name)
                 {
                     case "IsNull":
                         sb.Append(" is NULL");
@@ -361,16 +378,16 @@ namespace Dapper.Extensions
                     default:
                         string methodName = methodInfo.Name.ToLower();
                         string funcName = SqlMethodNameCallBack.MethodNameCallback(methodName);
-                        
+
                         if (!string.IsNullOrEmpty(funcName))
                             sb.Append(funcName);
                         else
                             throw new NotSupportedException(
-                                string.Format("{0}数据库中不支持函数{1}","sqlserver", methodName));
+                                string.Format("{0}数据库中不支持函数{1}", "sqlserver", methodName));
                         break;
                 }
 
-             
+
 
             }
 
@@ -393,13 +410,22 @@ namespace Dapper.Extensions
                         break;
                 }
             }
-
-            
             if (methodInfo.DeclaringType == typeof(Enumerable))
+                if (methodInfo.DeclaringType == typeof(Enumerable))
+                {
+                    this.Visit(node.Arguments[1]);
+                    sb.Append(" In ");
+                    this.Visit(node.Arguments[0]);
+                }
+#if COREFX
+            if (methodInfo.DeclaringType.GetTypeInfo().GetInterface("IEnumerable", false) != null)
+#else
+            if (methodInfo.DeclaringType?.GetInterface("IEnumerable", false) != null)
+#endif
             {
-                this.Visit(node.Arguments[1]);
-                sb.Append(" In ");
                 this.Visit(node.Arguments[0]);
+                sb.Append(" In ");
+                this.Visit(node.Object);
             }
 
             if (methodInfo.DeclaringType == typeof(System.Convert))
